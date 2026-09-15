@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>NEON RUN — BY ENDANA KRISDANTA</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#050510;color:#fff;font-family:Arial,sans-serif}
+body{touch-action:none}
+#wrap{position:relative;width:100%;height:100%;background:
+radial-gradient(circle at 50% 20%,#20205a 0,#0b0b22 35%,#030308 80%)}
+canvas{position:absolute;inset:0;width:100%;height:100%}
+.hud{position:absolute;top:15px;left:15px;right:15px;display:flex;justify-content:space-between;gap:10px;z-index:5;pointer-events:none}
+.box{padding:9px 13px;border:1px solid rgba(0,255,255,.45);border-radius:12px;background:rgba(5,5,20,.7);box-shadow:0 0 15px rgba(0,255,255,.12);font-weight:bold}
+#menu,#over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:10;background:rgba(2,2,10,.72);backdrop-filter:blur(5px)}
+.card{text-align:center;width:min(90%,430px);padding:30px 22px;border:1px solid rgba(0,255,255,.45);border-radius:24px;background:rgba(8,8,25,.9);box-shadow:0 0 45px rgba(0,255,255,.15)}
+h1{font-size:clamp(38px,12vw,70px);letter-spacing:6px;text-shadow:0 0 12px #00ffff,0 0 35px #7b00ff;margin-bottom:5px}
+.sub{color:#9ff;font-size:13px;letter-spacing:3px;margin-bottom:25px}
+button{border:0;border-radius:14px;padding:13px 24px;margin:6px;background:linear-gradient(135deg,#00d9ff,#704cff);color:white;font-weight:800;font-size:16px;cursor:pointer;box-shadow:0 0 20px rgba(0,220,255,.25)}
+button:active{transform:scale(.95)}
+.help{font-size:12px;color:#aaa;line-height:1.6;margin-top:15px}
+#controls{position:absolute;bottom:22px;left:0;right:0;display:flex;justify-content:center;gap:15px;z-index:6}
+.ctrl{width:68px;height:58px;border-radius:17px;background:rgba(10,10,30,.72);border:1px solid rgba(0,255,255,.45);color:#fff;font-size:25px;box-shadow:0 0 15px rgba(0,255,255,.12)}
+#watermark{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:7;width:min(92%,850px);text-align:center;pointer-events:none;color:#fff;opacity:.16;text-shadow:0 0 12px #00ffff,0 0 30px #7b00ff}.tn-logo{width:108px;height:108px;margin:0 auto 12px;border:3px solid #00ffff;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 0 14px #00ffff,0 0 35px #7b00ff}.tn-logo span{font-size:48px;font-weight:900;line-height:.8;letter-spacing:-2px}.tn-logo small{font-size:8px;letter-spacing:2px;margin-top:9px}.creator{font-size:clamp(28px,5vw,52px);font-weight:900;letter-spacing:5px;white-space:nowrap}.social{font-size:clamp(9px,1.5vw,14px);line-height:1.8;letter-spacing:1px;margin-top:12px}@media(max-width:600px){#watermark{opacity:.13}.tn-logo{width:82px;height:82px}.tn-logo span{font-size:36px}.creator{font-size:23px;letter-spacing:2px}.social{font-size:8px;letter-spacing:.3px}}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div id="wrap">
+<canvas id="game"></canvas>
+
+<div class="hud">
+  <div class="box">⭐ <span id="score">0</span></div>
+  <div class="box">❤️ <span id="lives">3</span></div>
+  <div class="box">🏆 <span id="best">0</span></div>
+</div>
+
+<div id="menu">
+ <div class="card">
+  <div class="sub">INTERACTIVE ARCADE</div>
+  <h1>NEON<br>RUN</h1>
+  <p style="color:#bbb;margin:12px 0 20px">Hindari rintangan • Kumpulkan energi • Bertahan selama mungkin</p>
+  <button onclick="startGame()">MULAI GAME</button>
+  <div class="help">PC: ← → / A D &nbsp; • &nbsp; HP: tombol bawah<br>Semakin lama bermain, semakin cepat!</div>
+ </div>
+</div>
+
+<div id="over" class="hidden">
+ <div class="card">
+  <div class="sub">GAME OVER</div>
+  <h1 style="font-size:45px">SELESAI</h1>
+  <p style="margin:15px">Skor kamu: <b id="final">0</b></p>
+  <button onclick="startGame()">MAIN LAGI</button>
+ </div>
+</div>
+
+<div id="controls">
+ <button class="ctrl" id="left">◀</button>
+ <button class="ctrl" id="right">▶</button>
+</div>
+<div id="watermark"><div class="tn-logo"><span>TN</span><small>TUKANG NGEDIT</small></div><div class="creator">BY ENDANA KRISDANTA</div><div class="social">IG : endana_krisdanta_agungprasetyo &nbsp; • &nbsp; YouTube : Tukang Ngedit<br>TikTok : prasetyo012 &nbsp; • &nbsp; Gmail : danta4788@gmail.com</div></div>
+</div>
+
+<script>
+const c=document.getElementById('game'),ctx=c.getContext('2d');
+let W,H,dpr,player,obs,coins,particles,score,lives,best,speed,playing,last,spawnT,coinT,keys={};
+best=+localStorage.getItem('neonBest')||0;
+document.getElementById('best').textContent=best;
+
+function resize(){
+ dpr=Math.min(devicePixelRatio||1,2); W=innerWidth; H=innerHeight;
+ c.width=W*dpr;c.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+addEventListener('resize',resize);resize();
+
+function reset(){
+ player={x:W/2,y:H-105,w:34,h:48,vx:0};
+ obs=[];coins=[];particles=[];score=0;lives=3;speed=5;spawnT=0;coinT=0;last=performance.now();
+ updateHUD();
+}
+function startGame(){
+ document.getElementById('menu').classList.add('hidden');
+ document.getElementById('over').classList.add('hidden');
+ reset();playing=true;requestAnimationFrame(loop);
+}
+function updateHUD(){
+ document.getElementById('score').textContent=Math.floor(score);
+ document.getElementById('lives').textContent=lives;
+ document.getElementById('best').textContent=best;
+}
+function rectHit(a,b){
+ return a.x-a.w/2<b.x+b.w/2&&a.x+a.w/2>b.x-b.w/2&&a.y-a.h/2<b.y+b.h/2&&a.y+a.h/2>b.y-b.h/2;
+}
+function spawnObstacle(){
+ let w=28+Math.random()*35;
+ obs.push({x:30+Math.random()*(W-60),y:-50,w,h:28+Math.random()*38,rot:Math.random()*6});
+}
+function spawnCoin(){
+ coins.push({x:25+Math.random()*(W-50),y:-20,r:8});
+}
+function burst(x,y,n=14){
+ for(let i=0;i<n;i++) particles.push({x,y,vx:(Math.random()-.5)*5,vy:(Math.random()-.5)*5,life:35+Math.random()*25});
+}
+function drawRoad(t){
+ ctx.fillStyle='#050512';ctx.fillRect(0,0,W,H);
+ let horizon=H*.22;
+ ctx.strokeStyle='rgba(0,220,255,.16)';ctx.lineWidth=1;
+ for(let i=-12;i<=12;i++){
+   ctx.beginPath();ctx.moveTo(W/2+i*18,horizon);ctx.lineTo(W/2+i*115,H);ctx.stroke();
+ }
+ for(let y=horizon;y<H;y+=42){
+   ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
+ }
+ ctx.strokeStyle='rgba(180,0,255,.35)';
+ ctx.beginPath();ctx.moveTo(W*.18,horizon);ctx.lineTo(0,H);ctx.stroke();
+ ctx.beginPath();ctx.moveTo(W*.82,horizon);ctx.lineTo(W,H);ctx.stroke();
+ for(let i=0;i<45;i++){
+   let x=(i*97+t*.025)%W,y=(i*53+t*.07)%H;
+   ctx.fillStyle='rgba(255,255,255,.45)';ctx.fillRect(x,y,1,1);
+ }
+}
+function drawPlayer(){
+ ctx.save();ctx.translate(player.x,player.y);
+ ctx.shadowBlur=22;ctx.shadowColor='#00ffff';
+ ctx.fillStyle='#0ff';ctx.beginPath();ctx.moveTo(0,-28);ctx.lineTo(17,18);ctx.lineTo(0,27);ctx.lineTo(-17,18);ctx.closePath();ctx.fill();
+ ctx.shadowBlur=8;ctx.fillStyle='#11152b';ctx.beginPath();ctx.moveTo(0,-18);ctx.lineTo(9,15);ctx.lineTo(0,20);ctx.lineTo(-9,15);ctx.closePath();ctx.fill();
+ ctx.restore();
+}
+function drawObstacle(o){
+ ctx.save();ctx.translate(o.x,o.y);ctx.rotate(o.rot);
+ ctx.shadowBlur=18;ctx.shadowColor='#ff216d';ctx.fillStyle='#ff216d';
+ ctx.fillRect(-o.w/2,-o.h/2,o.w,o.h);
+ ctx.fillStyle='#25051b';ctx.fillRect(-o.w/2+5,-o.h/2+5,o.w-10,o.h-10);
+ ctx.restore();
+}
+function drawCoin(q){
+ ctx.save();ctx.translate(q.x,q.y);ctx.shadowBlur=18;ctx.shadowColor='#ffe600';
+ ctx.strokeStyle='#ffe600';ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,0,q.r,0,Math.PI*2);ctx.stroke();
+ ctx.restore();
+}
+function drawParticles(){
+ for(let p of particles){
+  ctx.globalAlpha=Math.max(0,p.life/55);ctx.fillStyle='#00ffff';ctx.fillRect(p.x,p.y,3,3);
+ }
+ ctx.globalAlpha=1;
+}
+function loop(now){
+ if(!playing)return;
+ let dt=Math.min(2,(now-last)/16.67);last=now;
+ score+=.045*dt*speed;
+ speed=Math.min(13,5+score/180);
+ spawnT-=dt;coinT-=dt;
+ if(spawnT<=0){spawnObstacle();spawnT=Math.max(18,45-speed*2)}
+ if(coinT<=0){spawnCoin();coinT=28+Math.random()*22}
+ let dir=(keys.left?-1:0)+(keys.right?1:0);
+ player.x+=dir*7*dt;
+ player.x=Math.max(25,Math.min(W-25,player.x));
+
+ for(let o of obs)o.y+=speed*dt;
+ for(let q of coins)q.y+=speed*dt;
+ for(let p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt}
+
+ for(let i=obs.length-1;i>=0;i--){
+  let o=obs[i];
+  if(rectHit(player,o)){
+   burst(player.x,player.y,20);obs.splice(i,1);lives--;updateHUD();
+   if(lives<=0){gameOver();return}
+  } else if(o.y>H+70)obs.splice(i,1);
+ }
+ for(let i=coins.length-1;i>=0;i--){
+  let q=coins[i],fake={x:q.x,y:q.y,w:q.r*2,h:q.r*2};
+  if(rectHit(player,fake)){score+=15;burst(q.x,q.y,10);coins.splice(i,1);updateHUD()}
+  else if(q.y>H+30)coins.splice(i,1);
+ }
+ particles=particles.filter(p=>p.life>0);
+ drawRoad(now);coins.forEach(drawCoin);obs.forEach(drawObstacle);drawParticles();drawPlayer();
+ updateHUD();
+ requestAnimationFrame(loop);
+}
+function gameOver(){
+ playing=false;
+ if(score>best){best=Math.floor(score);localStorage.setItem('neonBest',best)}
+ document.getElementById('final').textContent=Math.floor(score);
+ document.getElementById('best').textContent=best;
+ document.getElementById('over').classList.remove('hidden');
+}
+addEventListener('keydown',e=>{
+ if(e.key==='ArrowLeft'||e.key.toLowerCase()==='a')keys.left=true;
+ if(e.key==='ArrowRight'||e.key.toLowerCase()==='d')keys.right=true;
+ if(e.key==='Enter'&&!playing&&!document.getElementById('menu').classList.contains('hidden'))startGame();
+});
+addEventListener('keyup',e=>{
+ if(e.key==='ArrowLeft'||e.key.toLowerCase()==='a')keys.left=false;
+ if(e.key==='ArrowRight'||e.key.toLowerCase()==='d')keys.right=false;
+});
+function hold(el,key){
+ ['pointerdown','touchstart'].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();keys[key]=true},{passive:false}));
+ ['pointerup','pointercancel','pointerleave','touchend'].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();keys[key]=false},{passive:false}));
+}
+hold(document.getElementById('left'),'left');hold(document.getElementById('right'),'right');
+</script>
+</body>
+</html>
